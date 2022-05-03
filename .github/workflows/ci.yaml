@@ -1,0 +1,18 @@
+name: test
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+        with:
+          go-version: '1.18.1'
+          check-latest: true
+      - name: Install deps
+        run: go mod download
+      - name: Check output
+        run: ./test.sh
