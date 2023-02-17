@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/go-git/go-git/v5"
@@ -78,7 +79,82 @@ func run() error {
 	domain := parsed.Host
 	hd := path.Join(domain, p)
 	normalized := strings.TrimSuffix(hd, ".git")
+	wd, err := os.Getwd()
 
-	fmt.Println(normalized)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+
+	gitPath, err := detectGitPath(wd)
+
+	if err != nil {
+		return errors.WithStack(err)
+	}
+
+	rel, err := filepath.Rel(strings.TrimSuffix(gitPath, ".git"), wd)
+
+	if err != nil {
+		return errors.WithStack(err)
+	}
+
+	currentPackagePath := path.Join(normalized, strings.TrimSuffix(rel, ".git"))
+
+	fmt.Println(currentPackagePath)
 	return nil
+}
+
+func detectGitPath(p string) (string, error) {
+	// normalize the p
+	p, err := filepath.Abs(p)
+	if err != nil {
+		return "", errors.WithStack(err)
+	}
+
+	for {
+		fi, err := os.Stat(path.Join(p, ".git"))
+		if err == nil {
+			if !fi.IsDir() {
+				return "", fmt.Errorf(".git exist but is not a directory")
+			}
+			return path.Join(p, ".git"), nil
+		}
+		if !os.IsNotExist(err) {
+			// unknown error
+			return "", err
+		}
+
+		// detect bare repo
+		ok, err := isGitDir(p)
+		if err != nil {
+			return "", err
+		}
+		if ok {
+			return p, nil
+		}
+
+		if parent := filepath.Dir(p); parent == p {
+			return "", errors.New(".git not found")
+		} else {
+			p = parent
+		}
+	}
+}
+
+func isGitDir(p string) (bool, error) {
+	markers := []string{"HEAD", "objects", "refs"}
+
+	for _, marker := range markers {
+		_, err := os.Stat(path.Join(p, marker))
+		if err == nil {
+			continue
+		}
+		if !os.IsNotExist(err) {
+			// unknown error
+			return false, errors.WithStack(err)
+		} else {
+			return false, nil
+		}
+	}
+
+	return true, nil
 }
