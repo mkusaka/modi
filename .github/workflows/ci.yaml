@@ -14,5 +14,7 @@ jobs:
           check-latest: true
       - name: Install deps
         run: go mod download
-      - name: Check output
+      - name: Run unit tests
+        run: go test ./...
+      - name: Run smoke test
         run: ./test.sh
